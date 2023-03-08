@@ -6,6 +6,7 @@
 #include "src/widgets/capture/capturetoolbutton.h"
 #include <QSettings>
 #include <QStringList>
+#include <QUrl>
 #include <QVariant>
 #include <QVector>
 
@@ -124,6 +125,8 @@ public:
     CONFIG_GETTER_SETTER(squareMagnifier, setSquareMagnifier, bool)
     CONFIG_GETTER_SETTER(copyOnDoubleClick, setCopyOnDoubleClick, bool)
     CONFIG_GETTER_SETTER(uploadClientSecret, setUploadClientSecret, QString)
+    CONFIG_GETTER_SETTER(customUploadUrl, setCustomUploadUrl, QUrl)
+    CONFIG_GETTER_SETTER(customUploadSecret, setCustomUploadSecret, QString)
     CONFIG_GETTER_SETTER(saveLastRegion, setSaveLastRegion, bool)
     CONFIG_GETTER_SETTER(showSelectionGeometry, setShowSelectionGeometry, int)
     // SPECIAL CASES

@@ -174,6 +174,14 @@ int main(int argc, char* argv[])
       { "p", "path" },
       QObject::tr("Existing directory or new file to save to"),
       QStringLiteral("path"));
+    CommandOption customUploadUrlOption(
+      "customuploadurl",
+      QObject::tr("Custom upload URL (Imgur-compatible)"),
+      QStringLiteral("URL"));
+    CommandOption customUploadSecretOption(
+      "customuploadsecret",
+      QObject::tr("Custom upload secret"),
+      QStringLiteral(""));
     CommandOption clipboardOption(
       { "c", "clipboard" }, QObject::tr("Save the capture to the clipboard"));
     CommandOption pinOption("pin",
@@ -231,6 +239,18 @@ int main(int argc, char* argv[])
       QStringLiteral("-1"));
 
     // Add checkers
+    const QString urlErr =
+      QObject::tr("Invalid URL format or unsupported scheme");
+    auto customUploadUrlChecker = [](const QString& uploadUrl) -> bool {
+        QUrl url(uploadUrl);
+
+        if (url.scheme() == QLatin1String("http") ||
+            url.scheme() == QLatin1String("https")) {
+            return url.isValid();
+        }
+
+        return false;
+    };
     auto colorChecker = [](const QString& colorCode) -> bool {
         QColor parsedColor(colorCode);
         return parsedColor.isValid() && parsedColor.alphaF() == 1.0;
@@ -280,6 +300,7 @@ int main(int argc, char* argv[])
                value == QLatin1String("false");
     };
 
+    customUploadUrlOption.addChecker(customUploadUrlChecker, urlErr);
     contrastColorOption.addChecker(colorChecker, colorErr);
     mainColorOption.addChecker(colorChecker, colorErr);
     delayOption.addChecker(numericChecker, delayErr);
@@ -332,7 +353,9 @@ int main(int argc, char* argv[])
                         showHelpOption,
                         mainColorOption,
                         contrastColorOption,
-                        checkOption },
+                        checkOption,
+                        customUploadUrlOption,
+                        customUploadSecretOption },
                       configArgument);
     // Parse
     if (!parser.parse(qApp->arguments())) {
@@ -511,8 +534,10 @@ int main(int argc, char* argv[])
         bool mainColor = parser.isSet(mainColorOption);
         bool contrastColor = parser.isSet(contrastColorOption);
         bool check = parser.isSet(checkOption);
+        bool customUploadUrl = parser.isSet(customUploadUrlOption);
+        bool customUploadSecret = parser.isSet(customUploadSecretOption);
         bool someFlagSet =
-          (filename || tray || mainColor || contrastColor || check);
+          (filename || tray || mainColor || contrastColor || check || customUploadUrl || customUploadSecret);
         if (check) {
             AbstractLogger err = AbstractLogger::error(AbstractLogger::Stderr);
             bool ok = ConfigHandler().checkForErrors(&err);
@@ -562,6 +587,12 @@ int main(int argc, char* argv[])
                 QString colorCode = parser.value(contrastColorOption);
                 QColor parsedColor(colorCode);
                 config.setContrastUiColor(parsedColor);
+            }
+            if (customUploadUrl) {
+                config.setCustomUploadUrl(parser.value(customUploadUrlOption));
+            }
+            if (customUploadSecret) {
+                config.setCustomUploadSecret(parser.value(customUploadSecretOption));
             }
         }
     }

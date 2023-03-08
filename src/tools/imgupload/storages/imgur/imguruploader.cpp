@@ -9,6 +9,7 @@
 #include "src/widgets/notificationwidget.h"
 #include <QBuffer>
 #include <QDesktopServices>
+#include <QHttpMultiPart>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
@@ -61,26 +62,41 @@ void ImgurUploader::handleReply(QNetworkReply* reply)
 
 void ImgurUploader::upload()
 {
+    // this code is taken from seamus-45's proposed custom upload solution from 2020 which was closed in favour of a plugin system:
+    // https://github.com/flameshot-org/flameshot/pull/688/files
+    // i've just ported this over to the newest version of flameshot
     QByteArray byteArray;
     QBuffer buffer(&byteArray);
     pixmap().save(&buffer, "PNG");
 
-    QUrlQuery urlQuery;
-    urlQuery.addQueryItem(QStringLiteral("title"), QStringLiteral(""));
-    QString description = FileNameHandler().parsedPattern();
-    urlQuery.addQueryItem(QStringLiteral("description"), description);
+    QHttpMultiPart* multiPart =
+      new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
-    QUrl url(QStringLiteral("https://api.imgur.com/3/image"));
-    url.setQuery(urlQuery);
-    QNetworkRequest request(url);
-    request.setHeader(QNetworkRequest::ContentTypeHeader,
-                      "application/application/x-www-form-urlencoded");
-    request.setRawHeader("Authorization",
-                         QStringLiteral("Client-ID %1")
-                           .arg(ConfigHandler().uploadClientSecret())
-                           .toUtf8());
+    QHttpPart titlePart;
+    titlePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"title\""));
+    titlePart.setBody("flameshot_screenshot");
 
-    m_NetworkAM->post(request, byteArray);
+    QHttpPart descPart;
+    QString desc = FileNameHandler().parsedPattern();
+    descPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"description\""));
+    descPart.setBody(desc.toLatin1());
+
+    QHttpPart imagePart;
+    imagePart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant("image/png"));
+    imagePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"image\"; filename=\"" + desc.toLatin1() + "\""));
+    imagePart.setBody(byteArray);
+
+    multiPart->append(titlePart);
+    multiPart->append(descPart);
+    multiPart->append(imagePart);
+
+    QUrl uploadUrl = ConfigHandler().customUploadUrl();
+    QString uploadSecret = ConfigHandler().customUploadSecret();
+
+    QNetworkRequest request(uploadUrl);
+    request.setRawHeader("Authorization", QStringLiteral("%1").arg(uploadSecret).toUtf8());
+
+    m_NetworkAM->post(request, multiPart);
 }
 
 void ImgurUploader::deleteImage(const QString& fileName,
